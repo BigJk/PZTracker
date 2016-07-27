@@ -1,0 +1,5 @@
+release/*
+node_modules/*
+gulpfile.js
+*.rar
+*.exe
