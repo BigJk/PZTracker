@@ -101,7 +101,7 @@ func main() {
 	go web()
 
 	fmt.Println(" + Starting " + path + "...")
-	cmd := exec.Command("ProjectZomboid64.bat")
+	cmd := exec.Command(path)
 	cmd.Stdout = trk
 	cmd.Run()
 }
