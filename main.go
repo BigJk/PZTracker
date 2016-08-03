@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"encoding/json"
@@ -47,15 +48,17 @@ func (t tracker) Write(p []byte) (n int, err error) {
 			sendToWs(event)
 
 			if debug {
-				fmt.Println(event)
+				log.Println(event)
 			}
+		} else if strings.HasPrefix(s, "Press any key") {
+			os.Exit(0)
 		} else {
 			event := basicEvent{eventName[1]}
 
 			sendToWs(event)
 
 			if debug {
-				fmt.Println(event)
+				log.Println(event)
 			}
 		}
 
@@ -65,14 +68,17 @@ func (t tracker) Write(p []byte) (n int, err error) {
 
 // Main Stuff
 
-var debug = false
+var debug = true
 var trackerEventRegex = regexp.MustCompile("Tracker:([a-zA-Z]+)")
 var trackerDataRegex = regexp.MustCompile("([a-zA-Z]+)\\(([^)]*)\\)")
 var trk = tracker{}
 
+var loading sync.WaitGroup
 var connection *websocket.Conn
 
 func main() {
+	loading.Add(2)
+
 	// Awesome print, because... cool
 	fmt.Println(`  ______ _______ _______                   __               
  |   __ \__     |_     _|.----.---.-.----.|  |--.-----.----.
@@ -99,11 +105,18 @@ func main() {
 	}
 
 	go web()
+	go waitForLoading()
 
 	fmt.Println(" + Starting " + path + "...")
 	cmd := exec.Command(path)
 	cmd.Stdout = trk
+	loading.Done()
 	cmd.Run()
+}
+
+func waitForLoading() {
+	loading.Wait()
+	fmt.Println("\n__/ PZTRACKER LOG \\__________________________________________________")
 }
 
 // Websocket Stuff
@@ -117,8 +130,8 @@ func sendToWs(data interface{}) {
 }
 
 func wsHandler(ws *websocket.Conn) {
-	fmt.Println("Websocket connected...")
-	if ws != nil {
+	log.Println("Websocket connected")
+	if connection != nil {
 		ws.Close()
 	}
 	connection = ws
@@ -132,13 +145,14 @@ func wsHandler(ws *websocket.Conn) {
 		time.Sleep(100)
 	}
 
-	fmt.Println("Websocket disconnected...")
+	log.Println("Websocket disconnected")
 	connection = nil
 }
 
 func web() {
 	fmt.Println(" + Starting Webservice...")
 	http.Handle("/ws", websocket.Handler(wsHandler))
+	loading.Done()
 	err := http.ListenAndServe(":9090", nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)

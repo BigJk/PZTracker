@@ -1,4 +1,4 @@
-name=PZTackerMod
+name=PZTrackerMod
 poster=poster.png
-description=PZTacker Mod part of PZTacker. It's used to get the player coords.
-id=PZTackerMod
+description=PZTracker Mod part. It's used to get player information out of the game.
+id=PZTrackerMod

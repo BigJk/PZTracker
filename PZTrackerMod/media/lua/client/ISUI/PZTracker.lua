@@ -11,7 +11,19 @@ local enableFollow = false;
 function onGameStart()
 	-- Print out some basic player infos on game start. Maybe used in later and more advanced version.
 	local player = getSpecificPlayer(0);
-	print("Tracker:BasicInfo Username(" .. player:getUsername() .. ") Surname(" .. player:getSurname() .. ") Name(" .. player:getForname() .. ")");
+	emitEvent("BasicInfo", {
+		Username = player:getUsername(),
+		Surname = player:getSurname(),
+		Name = player:getForname()
+	});
+end
+
+function onConnected()
+	emitBasicEvent("Connected")
+end
+
+function onDisconnect()
+	emitBasicEvent("Disconnect")
 end
 
 function onMove()
@@ -30,7 +42,10 @@ function onMove()
 	-- Get local player and pring X and Y position.
     local player = getSpecificPlayer(0);
 	if player then
-		print("Tracker:Position X(" .. player:getX() .. ") Y(" .. player:getY() .. ")");
+		emitEvent("Position", {
+			X = player:getX(),
+			Y = player:getY()
+		});
 	end
 end
 
@@ -53,13 +68,25 @@ function onkeyPressed(num)
 end
 
 -- BASIC FUNCTION'S --
+
+-- Emits a simple event.
 function emitBasicEvent(t)
-	-- Emits a simple event.
 	print("Tracker:" .. t);
+end
+
+-- Emits a event that contains data.
+function emitEvent(name, data)
+	eventStr = "Tracker:" .. name;
+	for k, v in pairs(data) do
+		eventStr = eventStr .. " " .. k .. "(" .. v .. ")";
+	end
+	print(eventStr);
 end
 
 
 -- EVENT'S --
 Events.OnGameStart.Add(onGameStart);
 Events.OnPlayerMove.Add(onMove);
-Events.OnKeyPressed.Add(onkeyPressed)
+Events.OnKeyPressed.Add(onkeyPressed);
+Events.OnConnected.Add(onConnected);
+Events.OnDisconnect.Add(onDisconnect);
