@@ -1,5 +1,6 @@
 release/*
 node_modules/*
 
+*.json
 *.rar
 *.exe

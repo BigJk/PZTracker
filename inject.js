@@ -1,7 +1,7 @@
 var pointDiv = "<div id=\"pztacker-pointer\" style=\"width: 8px; height: 8px; position: absolute; left: calc(50% - 4px); top: calc(50% - 4px); background-color: rgba(0,0,0,0.2); z-index: 100; border-radius: 5px; border: 1px solid rgba(255, 0, 0, 0.7);\"></div>"
 
 function getUpdate() {
-	var connection = new WebSocket('ws://127.0.0.1:9090/ws')
+	var connection = new WebSocket('ws://127.0.0.1:%PORT%/websocket')
 	
 	// Add Pointer if not existend
 	if($('#pztacker-pointer').length == 0) {

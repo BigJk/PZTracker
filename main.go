@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -47,7 +48,7 @@ func (t tracker) Write(p []byte) (n int, err error) {
 
 			sendToWs(event)
 
-			if debug {
+			if conf.Debug {
 				log.Println(event)
 			}
 		} else if strings.HasPrefix(s, "Press any key") {
@@ -57,7 +58,7 @@ func (t tracker) Write(p []byte) (n int, err error) {
 
 			sendToWs(event)
 
-			if debug {
+			if conf.Debug {
 				log.Println(event)
 			}
 		}
@@ -68,13 +69,21 @@ func (t tracker) Write(p []byte) (n int, err error) {
 
 // Main Stuff
 
-var debug = true
+type config struct {
+	StartupFile string
+	Parameters  string
+	WebPort     int
+	Debug       bool
+}
+
 var trackerEventRegex = regexp.MustCompile("Tracker:([a-zA-Z]+)")
 var trackerDataRegex = regexp.MustCompile("([a-zA-Z]+)\\(([^)]*)\\)")
 var trk = tracker{}
 
 var loading sync.WaitGroup
 var connection *websocket.Conn
+var jsScript string
+var conf config
 
 func main() {
 	loading.Add(2)
@@ -86,36 +95,60 @@ func main() {
  |___|  |_______| |___|  |__| |___._|____||__|__|_____|__|
 `)
 
-	// Check for 64 bit and decide wich bat file to start.
-	bit64 := strings.Contains(runtime.GOARCH, "64")
-	path := "ProjectZomboid32.bat"
-	if bit64 {
-		path = "ProjectZomboid64.bat"
-	}
-
-	// Check if a custom starting file is given.
-	if len(os.Args) > 1 {
-		path = os.Args[1]
-	}
+	checkConfig()
 
 	// Checks if it exists
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		fmt.Println(" -", path, "not existing. Can't start Project Zomboid.")
+	if _, err := os.Stat(conf.StartupFile); os.IsNotExist(err) {
+		fmt.Println(" -", conf.StartupFile, "not existing. Can't start Project Zomboid.")
 		return
 	}
+
+	loadJsScript()
 
 	go web()
 	go waitForLoading()
 
-	fmt.Println(" + Starting " + path + "...")
-	cmd := exec.Command(path)
+	fmt.Println(" + Starting " + conf.StartupFile + "...")
+	cmd := exec.Command(conf.StartupFile, strings.Split(conf.Parameters, " ")...)
 	cmd.Stdout = trk
 	loading.Done()
 	cmd.Run()
 }
 
+func loadJsScript() {
+	b, err := ioutil.ReadFile("inject-min.js")
+	if err == nil {
+		jsScript = string(b)
+		jsScript = strings.Replace(jsScript, "%PORT%", fmt.Sprint(conf.WebPort), -1)
+	}
+}
+
+func checkConfig() {
+	if _, err := os.Stat("pztracker_config.json"); os.IsNotExist(err) {
+		setupConfig()
+	} else {
+		b, _ := ioutil.ReadFile("pztracker_config.json")
+		json.Unmarshal(b, &conf)
+	}
+}
+
+func setupConfig() {
+	bit64 := strings.Contains(runtime.GOARCH, "64")
+	if bit64 {
+		conf = config{"ProjectZomboid64.exe", "-Xmx1024m -Xms1024m -- -nosteam", 9090, false}
+	} else {
+		conf = config{"ProjectZomboid32.exe", "-Xmx768m -Xms768m -- -nosteam", 9090, false}
+	}
+	b, _ := json.MarshalIndent(conf, "", "	")
+	ioutil.WriteFile("pztracker_config.json", b, 0777)
+	fmt.Println(" + Missing config file created. (pztracker_config.json)")
+}
+
 func waitForLoading() {
 	loading.Wait()
+	if len(jsScript) > 0 {
+		fmt.Println("\n > Insert into development console: $.getScript('http://127.0.0.1:" + fmt.Sprint(conf.WebPort) + "/js');")
+	}
 	fmt.Println("\n__/ PZTRACKER LOG \\__________________________________________________")
 }
 
@@ -149,11 +182,18 @@ func wsHandler(ws *websocket.Conn) {
 	connection = nil
 }
 
+func jsHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, jsScript)
+}
+
 func web() {
 	fmt.Println(" + Starting Webservice...")
-	http.Handle("/ws", websocket.Handler(wsHandler))
+
+	http.Handle("/websocket", websocket.Handler(wsHandler))
+	http.HandleFunc("/js", jsHandler)
+
 	loading.Done()
-	err := http.ListenAndServe(":9090", nil)
+	err := http.ListenAndServe(":"+fmt.Sprint(conf.WebPort), nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}

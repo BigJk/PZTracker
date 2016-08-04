@@ -68,14 +68,11 @@ function onkeyPressed(num)
 end
 
 -- BASIC FUNCTION'S --
-
--- Emits a simple event.
-function emitBasicEvent(t)
+function emitBasicEvent(t) -- Emits a simple event.
 	print("Tracker:" .. t);
 end
 
--- Emits a event that contains data.
-function emitEvent(name, data)
+function emitEvent(name, data) -- Emits a event that contains data.
 	eventStr = "Tracker:" .. name;
 	for k, v in pairs(data) do
 		eventStr = eventStr .. " " .. k .. "(" .. v .. ")";
